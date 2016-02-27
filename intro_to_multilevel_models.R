@@ -3,6 +3,9 @@ library(arm)
 library(ggplot2)
 library(reshape2)
 
+# Introduction to Random Effect / Multi Level Models.
+#----------------------------------------------------
+
 # Basic random intercept only example, shows how random intercept models control
 # for variation
 
@@ -63,8 +66,10 @@ estimate_lmer_with_fixed <- function(N, N_classes) {
 set.seed(154)
 N_replicates <- 25
 N_classes <- 100
-lmers_fixed_effects <- replicate(N_replicates,
-                                 fixef(estimate_lmer_with_fixed(10000, N_classes)))
+lmers_fixed_effects <- replicate(
+  N_replicates,
+  fixef(estimate_lmer_with_fixed(10000, N_classes))
+)
 
 # Evaluate the fixed effects part of the model on a grid of points on [0, 1]
 N_grid_points <- 4
@@ -75,7 +80,6 @@ fixef_preds_melted <- data.frame(
   x = rep(seq(0, 1, length = N_grid_points), N_replicates),
   fix_effects_preds = as.vector(fixef_preds)
 )
-
 ggplot(data = fixef_preds_melted, aes(x = x, y = fix_effects_preds)) +
   geom_line(aes(group = model_id), alpha = .25) +
   geom_abline(intercept = 0, slope = 1, color="red") +
@@ -95,7 +99,7 @@ rand_effects_melted <- data.frame(
 ggplot(data=rand_effects_melted, aes(x=coef)) +
   geom_histogram() +
   facet_wrap(~model_id) +
-  labs(title="Parameter Estimates in Null Random Intercept Model")
+  labs(title="Random effects in Null Random Intercept Model")
 
 
 
