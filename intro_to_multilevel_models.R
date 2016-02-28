@@ -100,6 +100,3 @@ ggplot(data=rand_effects_melted, aes(x=coef)) +
   geom_histogram() +
   facet_wrap(~model_id) +
   labs(title="Random effects in Null Random Intercept Model")
-
-
-
