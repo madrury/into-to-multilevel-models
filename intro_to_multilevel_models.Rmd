@@ -1,0 +1,327 @@
+---
+title: "Intro to Multilevel Models"
+author: "Matthe Drury"
+date: "February 28, 2016"
+output: html_document
+---
+
+This document is intended to review the basics on multilevel models, with a
+focus on random intercept models, and what problems they solve with respect to
+standard linear models.
+
+Linear Models and Noisy Coefficients
+------------------------------------
+
+Linear models, while exceedingly useful in many situations, deal very badly with
+high dimensional catagorical varaibles.  To demonstrate this, consider the
+following procedure, which regresses a normally distributed $Y$ against a
+totally independent catagorical predictor $X$
+
+```{r}
+# Fit a linear model to independent y, and a random class varaible
+estiamte_lm_random_classes <- function(N, N_classes) {
+  X <- factor(sample(1:N_classes, N, replace=TRUE))
+  y <- rnorm(N)
+  M <- lm(y ~ X)
+  coef(M)
+}
+```
+
+If we simulate this procedure many times, we can see how the linear model
+assigns a distribution of parameter estimates to this data
+
+```{r}
+# Replicate fitting an estimator N times
+replicate_models <- function(N, N_classes, estimator, N_replicates) {
+  model_coefs <- replicate(N_replicates, estimator(N, N_classes))
+  model_coefs_melted <- data.frame(
+    model_id = rep(1:N_replicates, each=N_classes),
+    coef = as.vector(model_coefs)
+  )
+  model_coefs_melted
+}
+# 10000 replications of the independent y, random class model
+model_coefs_melted <- replicate_models(10000, 100, estiamte_lm_random_classes, 25)
+```
+
+The distributions show significant variation in parameter estiamtes each time,
+although every true parameter estiamte is zero
+
+```{r message=FALSE, warning=FALSE}
+library("ggplot2")
+ggplot(data=model_coefs_melted, aes(x=coef)) +
+  geom_histogram() +
+  facet_wrap(~model_id) +
+  labs(title="Parameter Estimates in Null Linear Model")
+```
+
+Random Intercept Models
+-----------------------
+
+Random intercept models area  way to adress the high varaince that linear models
+exhibit in teh above situation.
+
+Recall that we may express the assumption underlying a linear model as follows
+
+$$ Y \mid X \sim N(X \beta, \sigma I) $$
+
+That is, the conditional distribution of the reponse $Y$, when $X$ is held
+constant, is (multivariate) normal with mean $X \beta$.  The individual samples from $Y$ are
+independent, and the std-deviation of any one sample is some $\sigma$.  When
+fitting a linear model, the parameters $\beta$ and $\sigma$ are esimtated using
+maximum liklihood estimation.  As we have seen, when $X$ is a high dimensional
+catagorical vector, the linear model's estiamtes of $\beta$ are plauged by a
+high variance.
+
+A random intercept model alleviates this varaince by constraining (some or all) 
+of the parameter estimates to themselves come from a normal distribution
+(whose parameters the model also estimates), this has a constraining effect on
+the estimated parameters which often produces more predictive models.
+
+To be precise, let's set down some notation.  Let $\alpha_{[i]}$ denotre the
+parameter to be estiamted for class $i$ (in our many-leveled catagorical
+variable).  Then the defining relations of a random intercept model are
+
+$$ Y \mid X \sim N(\alpha_{[i]}, \sigma I) $$
+$$ \alpha \sim N( \mu_{\alpha}, \sigma_{\alpha}) $$
+
+The first relation is just a restatement of the linear modeling relation.
+The second models the parameters in the linear model as *themselves*  random
+varaibles, sampled from a normal distribution whose parameters are also to be
+estiamted.
+
+Fitting Random Intercept Models in R
+------------------------------------
+
+Fitting random intercept models in R is easy with the `lme4` library.
+
+The linear model above is expressed in R as
+
+```{r echo=FALSE}
+set.seed(154)
+N <- 10000
+N_classes <- 100
+```
+
+```{r}
+df <- data.frame(
+  X <- factor(sample(1:N_classes, N, replace=TRUE)),
+  y <- rnorm(N)
+)
+M_lm <- lm(y ~ X, data = df)
+```
+
+The random intercept model is fit using the `lmer` function (for *linear mixed
+effects regression*)
+
+```{r message=FALSE, warning=FALSE}
+library("lme4")
+M_lmer <- lmer(y ~ (1 | X), data = df)
+```
+
+We can pull the components described above out of the `M_lmer` object.  The
+mean of the estimated random intercepts $\alpha$ was estimated as a global
+intercept term.  If it's confusing why the random intercept mean $\mu_{\alpha}$
+would appear as a global intercept, just observe that the model definition could
+just as well have been expressed as
+
+$$ Y \mid X \sim N(\mu_{\alpha} + \alpha_{[i]}, \sigma I) $$
+$$ \alpha \sim N(0, \sigma_{\alpha}) $$
+
+which illistrates teh general point that even the most simple multilevel models
+may be expressed in many equivelent ways.
+
+This global intercept term is our first example of a *fixed effect*. 
+
+```{r}
+fixef(M_lmer)
+```
+
+Fixed effects have have no apriori assumed distribution, as opposed to *random
+effects*, for which we do make such an assumption.
+
+The collection of estimated random intercepts $\hat \alpha$ caa be retrieved using the `ranef`
+acessor function
+
+```{r}
+head(ranef(M_lmer)$X)
+```
+
+The estimated standard deviation of these intercepts $\hat \sigma_{\alpha}$
+can be accessed as
+
+```{r}
+attributes(VarCorr(M_lmer)$X)$stddev
+```
+
+and the residual standard deviation $\hat \sigma$ as
+
+```{r}
+sigma(M_lmer)
+```
+
+From these values, it looks like `lmer` got the model quite right.  The true
+model is
+
+$$ Y \mid X \sim N(0, 1) $$
+
+so the correct parameters would be $\hat \alpha_i = 0$ for all $i$,
+$\hat \sigma_{\alpha} = 0$, and $\hat \sigma = 1$.  We were very close!
+
+To make sure we didn't just get lucky, we can repeat this entire precodeure
+many times, and then plot the resulting histograms of estimated random effects
+
+```{r echo=FALSE}
+set.seed(154)
+```
+
+```{r message=FALSE, warning=FALSE}
+estiamte_lmer_random_classes <- function(N, N_classes) {
+  df <- data.frame(
+    x = factor(sample(1:N_classes, N, replace=TRUE)),
+    y = rnorm(N)
+  )
+  M <- lmer(y ~ (1 | x), data = df)
+  ranef(M)$x[, 1]
+}
+
+model_coefs_melted <- replicate_models(10000, 100,
+                                      estiamte_lmer_random_classes, 25)
+ggplot(data=model_coefs_melted, aes(x=coef)) +
+  geom_histogram() +
+  facet_wrap(~model_id) +
+  labs(title="Parameter Estimates in Null Random Intercept Model")
+```
+
+The random intercept model does much better than the linear model.  It often
+finds the exact truth ($\hat \sigma_{\alpha} = 0$), and otherwise assigns a
+very small standard deviation to the distribution of intercepts.
+
+To emphasize the point, Here's a side by size comparison of the intercepts in one of the models returned 
+from `lme` vs the same returned from `lmer`
+
+```{r message=FALSE, warning=FALSE}
+set.seed(154)
+df <- data.frame(
+  x = factor(sample(1:N_classes, N, replace=TRUE)),
+  y = rnorm(N)
+)
+M_lm <- lm(y ~ x, data = df)
+M_lmer <- lmer(y ~ (1 | x), data = df)
+plot_data <- data.frame(coef = c(coef(M_lm), ranef(M_lmer)$x[, 1]),
+                        type = rep(c("lm", "lmer"), each = N_classes))
+ggplot(aes(x = coef, fill = type), data = plot_data) + 
+  geom_histogram() + 
+  facet_wrap(~ type) +
+  labs(title="Linear and Random Intercept Null Model Coefficients (Same Scale)")
+```
+
+The random intercept controls the untamed varaince of the linear model.
+
+Fixed Effect Terms
+------------------
+
+Above we saw that the intercept in a random intercept model is estimted as a
+*fixed effect*.  We can add other fixed effects to a multilevel model.
+
+For example, we can estimate a model with an intercept and linear term as fixed
+effects, along with a random intercept.  In detail, we can write out this model
+as
+
+$$ Y \mid X \sim N(\beta_0 + \beta_1 x + \alpha_{[i]}, \sigma) $$
+$$ \alpha \sim N(0, \sigma_{\alpha}) $$
+
+Note that this is completely equivelent to
+
+$$ Y \mid X \sim N( \alpha_{[i]}, \sigma) $$
+$$ \alpha \sim N(\beta_0 + \beta_1 x, \sigma_{\alpha}) $$
+
+which again illistrates a multilevel model can be expressed in multiple ways.
+
+This fixed intercept and slope, random intercept model is also easy to estiamte
+with `lmer`
+
+```{r}
+set.seed(154)
+df <- data.frame(
+  t = runif(N),
+  X = factor(sample(1:N_classes, N, replace=TRUE))
+)
+df$y <- df$t + rnorm(N)
+M_lmer <- lmer(y ~ t + (1 | X), data = df)
+```
+
+Now there is both a fixed effect intercept and a fixed effect slope
+
+```{r}
+fixef(M_lmer)
+```
+
+We can check out the random effects just like in the simpler model
+
+```{r}
+attributes(VarCorr(M_lmer)$X)$stddev
+```
+
+```{r}
+sigma(M_lmer)
+```
+
+Again, it looks like this model captures the essence of the situation.  We can
+again simulate many times to be sure
+
+```{r echo=FALSE}
+estimate_lmer_with_fixed <- function(N, N_classes) {
+  df <- data.frame(
+    t = runif(N),
+    x = factor(sample(1:N_classes, N, replace=TRUE))
+  )
+  df$y <- df$t + rnorm(N)
+  M <- lmer(y ~ t + (1 | x), data = df)
+  M
+}
+
+set.seed(154)
+N_replicates <- 9
+N_classes <- 100
+lmers_fixed_effects <- replicate(
+  N_replicates,
+  fixef(estimate_lmer_with_fixed(10000, N_classes))
+)
+
+# Evaluate the fixed effects part of the model on a grid of points on [0, 1]
+N_grid_points <- 4
+grid_matrix <- cbind(rep(1, N_grid_points), seq(0, 1, length = N_grid_points))
+fixef_preds <- grid_matrix %*% lmers_fixed_effects
+fixef_preds_melted <- data.frame(
+  model_id = factor(rep(1:N_replicates, each = N_grid_points)),
+  x = rep(seq(0, 1, length = N_grid_points), N_replicates),
+  fix_effects_preds = as.vector(fixef_preds)
+)
+p_fixef <- ggplot(data = fixef_preds_melted, aes(x = x, y = fix_effects_preds)) +
+                  geom_line(aes(group = model_id), alpha = .25) +
+                  geom_abline(intercept = 0, slope = 1, color="red") +
+                  labs(title="Fix Effects Estiamtes")
+
+
+# Plot the random effect distribution from the same model
+set.seed(154)
+lmers_rand_effects <- replicate(
+  N_replicates,
+  ranef(estimate_lmer_with_fixed(10000, N_classes))$x[,1]
+)
+rand_effects_melted <- data.frame(
+  model_id = rep(1:N_replicates, each = N_classes),
+  coef = as.vector(lmers_rand_effects)
+)
+p_ranef <- ggplot(data=rand_effects_melted, aes(x=coef)) +
+           geom_histogram() +
+           facet_wrap(~model_id) +
+           labs(title="Random Effects Estimates")
+```
+
+```{r}
+# I've suppresed the busywork involved in making these plots.
+library("gridExtra")
+grid.arrange(p_fixef, p_ranef, ncol=2)
+```
