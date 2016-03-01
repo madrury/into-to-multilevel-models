@@ -40,7 +40,7 @@ ggplot(data = parameters_df, aes(x = effective_parameter)) +
 
 
 # Create some fake data with a two-heirachy structure to mimic make-model.
-N_obs <- 200000
+N_obs <- 50000
 
 class <- as.character(sample(1:N_class, N_obs, replace = TRUE))
 subclass <- as.character(sample(1:N_subclass, N_obs, replace = TRUE))
@@ -106,3 +106,4 @@ estimates <- ggplot(data = df, aes(x = estimated_effective_parameter)) +
   facet_wrap(~ class) +
   labs(title = "Distribution of Estiamted Class-Subclass Parameters")
 grid.arrange(actuals, estimates, ncol=2)
+
