@@ -320,7 +320,7 @@ p_ranef <- ggplot(data=rand_effects_melted, aes(x=coef)) +
            labs(title="Random Effects Estimates")
 ```
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 # I've suppresed the busywork involved in making these plots.
 library("gridExtra")
 grid.arrange(p_fixef, p_ranef, ncol=2)
