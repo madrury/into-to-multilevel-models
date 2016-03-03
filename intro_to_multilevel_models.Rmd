@@ -340,15 +340,15 @@ To understand why "Multilevel Models" is a good name, lets construct some data w
   - `subclass` is a another catagorical predictor that bears a parent-child relationship to `class`.  That is, each level of `class` has `N_subclass`
   associated levels of `subclass`.
   
-Many times, in situations like this, we would expect the influence of `subclass` on some response to be some adjustment to the influence of `class`.  Said another way, the levels of `class` act as cluster labels for the levels of `subclass` within the context of a regression.
+Many times, in situations like this, we would expect the influence of `subclass` on some response varaible to be best expressed an adjustment to the influence of `class`.  Said another way, the levels of `class` may act as cluster labels for the levels of `subclass` within the context of a regression.
 
-We can express this in the context of a miltilevel model as follows
+We can express this idea in the context of a miltilevel model by hypothesizing the following data model
 
 $$ Y \mid X \sim N(\mu_{\text{class}} + \alpha_{[i]} + \beta_{[ij]}, \sigma) $$
 $$ \alpha \sim N(0, \sigma_{\alpha}) $$
 $$ \beta_{[i*]} \sim N(0, \sigma_{\alpha_{[i]}}) $$
 
-The notation is starting to get difficult[^2], but here $\alpha$ represents the `class` random intercepts, and $\beta$ represents the `subclass` random intercepts.  Informally, we are saying that the `class` intercepts should cluster around the fixed intercept, and the `subclass` intercepts should cluster around the corresponding parent `class` intercept.
+The notation is starting to get difficult[^2].  Here $\alpha$ represents the `class` random intercepts, and $\beta$ represents the `subclass` random intercepts.  Informally, we are saying that the `class` intercepts should cluster around the fixed intercept, and the `subclass` intercepts should cluster around the corresponding parent `class` intercept.
 
 Let's generate some data using this scheme.  First, `class` parameters[^3]
 
@@ -375,10 +375,10 @@ subclass_parameters <- structure(
 head(subclass_parameters)
 ```
 
-Lets call the sum of a `class` and `subclass` parameter an `effective` parameter, as it is that that forms the total effect size for the subclass.  We can
+We call the sum of a `class` and `subclass` parameter an `effective` parameter (this is not a common term, but is useful for this discussion), it is this value that forms the total effect size for the subclass.  We can
 visualize the distribution of effective parameters in our model, grouped by thier associated class
 
-```{r}
+```{r meessage=FALSE, warning=FALSE}
 # Get the class name from a subclass name. For example:
 #   get_class_name("10.4") == "10"
 get_class_name <- function(subclass_name) strsplit(subclass_name, ".", fixed = TRUE)[[1]][1]
@@ -404,13 +404,48 @@ ggplot(data = parameters_df, aes(x = effective_parameter)) +
 It may be easier to visualize if we break out the individual subclass parameter
 distributions into seperate density plots
 
-```{r}
+Each group of `subclass` parameters takes a bell shaped distribution around the `class` mean (which are marked on the rug plot below the x-axis).
+
+```{r meessage=FALSE, warning=FALSE}
 ggplot(data = parameters_df, aes(x = effective_parameter)) +
   geom_density(aes(fill = class), alpha = .25) +
   geom_rug(aes(x = class_parameter, colour = class)) +
   facet_wrap(~ class) +
   labs(title = "Distrribution of True Effective Parameters") 
 ```
+
+The `lme4` library can fit the parameters in this model, justifying the choice of name.  First, let's generate some response data
+
+```{r}
+N_obs <- 50000
+
+class <- as.character(sample(1:N_class, N_obs, replace = TRUE))
+subclass <- as.character(sample(1:N_subclass, N_obs, replace = TRUE))
+class_subclass <- paste(class, subclass, sep = ".")
+y <- class_parameters[class] + subclass_parameters[class_subclass] + rnorm(N_obs)
+
+class_subclass_df <- data.frame(
+  class  = class,
+  subclass = subclass,
+  y = y
+)
+head(class_subclass_df)
+```
+
+The multilevel model we layed out above can be fit using the `:` operator in `lme4` to express the parent-child relationship of `class` and `subclass`
+
+```{r}
+M <- lmer(y ~ (1 | class) + (1 | class:subclass), data = class_subclass_df)
+```
+
+Breaking this down
+
+  - The implied `1` fits a fixed effect overall intercept.
+  - The `(1 | class)` term fits a random intercept for `class`.
+  - The `(1 | class:subclass)` fits a random intercept for `subclass`, but with
+  each group of `subclass` estiamtes centered around the estiamted intercept for the parent `class`.
+  
+
 
 [^2]: It always does, eventually.  To make it worse, here's yet another way to express the model:
 $$ Y \mid X \sim N(\beta_{[ij]}, \sigma) $$
