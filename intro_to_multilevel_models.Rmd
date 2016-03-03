@@ -404,8 +404,6 @@ ggplot(data = parameters_df, aes(x = effective_parameter)) +
 It may be easier to visualize if we break out the individual subclass parameter
 distributions into seperate density plots
 
-Each group of `subclass` parameters takes a bell shaped distribution around the `class` mean (which are marked on the rug plot below the x-axis).
-
 ```{r meessage=FALSE, warning=FALSE}
 ggplot(data = parameters_df, aes(x = effective_parameter)) +
   geom_density(aes(fill = class), alpha = .25) +
@@ -416,8 +414,10 @@ ggplot(data = parameters_df, aes(x = effective_parameter)) +
 
 The `lme4` library can fit the parameters in this model, justifying the choice of name.  First, let's generate some response data
 
+Each group of `subclass` parameters takes a bell shaped distribution around the `class` mean (which are marked on the rug plot below the x-axis).
+
 ```{r}
-N_obs <- 50000
+N_obs <- 5000
 
 class <- as.character(sample(1:N_class, N_obs, replace = TRUE))
 subclass <- as.character(sample(1:N_subclass, N_obs, replace = TRUE))
@@ -435,7 +435,8 @@ head(class_subclass_df)
 The multilevel model we layed out above can be fit using the `:` operator in `lme4` to express the parent-child relationship of `class` and `subclass`
 
 ```{r}
-M <- lmer(y ~ (1 | class) + (1 | class:subclass), data = class_subclass_df)
+class_subclass_lmer <- lmer(y ~ (1 | class) + (1 | class:subclass),
+                            data = class_subclass_df)
 ```
 
 Breaking this down
@@ -444,7 +445,67 @@ Breaking this down
   - The `(1 | class)` term fits a random intercept for `class`.
   - The `(1 | class:subclass)` fits a random intercept for `subclass`, but with
   each group of `subclass` estiamtes centered around the estiamted intercept for the parent `class`.
-  
+
+Let's look into how well this model captures reality.  First, we plot the estimated and actual class means, along with thie standard error of each estimated class mean
+
+```{r message=FALSE, warning=FALSE}
+# TODO: Make this a one df plot, so that the labels play nice.
+library("arm") # Contains extra functions for manipulating lmer objects.
+class_means_df <- data.frame(
+  class_id = names(class_parameters),
+  true_class_means = class_parameters,
+  estimated_class_means = fixef(class_subclass_lmer) + 
+                          ranef(class_subclass_lmer)$class[, 1],
+  # The intercept and class means are assumed to vary independently here.
+  upper_se = fixef(class_subclass_lmer) + 
+             ranef(class_subclass_lmer)$class[, 1] +
+             sqrt(se.coef(class_subclass_lmer)$fixef^2 + 
+                          se.coef(class_subclass_lmer)$class[, 1]^2),
+  lower_se = fixef(class_subclass_lmer) +
+             ranef(class_subclass_lmer)$class[, 1] -
+             sqrt(se.coef(class_subclass_lmer)$fixef^2 + 
+                          se.coef(class_subclass_lmer)$class[, 1]^2)
+)
+
+ggplot(data = class_means_df) +
+  geom_point(aes(x = class_id, y = estimated_class_means), color = "blue") +
+  geom_pointrange(aes(x = class_id, y = estimated_class_means,
+                      ymax = upper_se, ymin = lower_se), color = "blue",
+                  alpha = .5) +
+  geom_point(aes(x = class_id, y = true_class_means)) +
+  labs(title = "Estiamted vs. Actual Class Means")
+```
+
+We can also recrate the above density plots of the `subclass` parameters, this time using the *estimated*, instead of true, values
+
+```{r message=FALSE, warning=FALSE}
+# TODO: Don't call this df
+df <- data.frame(
+  estimated_effective_parameter =
+    rep(fixef(class_subclass_lmer), N_class*N_subclass) +
+    rep(ranef(class_subclass_lmer)$class[, 1], each = N_subclass) +
+    ranef(class_subclass_lmer)[["class:subclass"]][, 1],
+  class = factor(rep(1:9, each = N_subclass))
+)
+
+# TODO: Need title
+ggplot(data = df, aes(x = estimated_effective_parameter)) +
+  geom_density(aes(fill = class), alpha=.25)
+```
+
+Here that is side by side with the actual values
+
+```{r message=FALSE, warning=FALSE}
+# TODO: Need titles.
+actuals <- ggplot(data = parameters_df, aes(x = effective_parameter)) +
+  geom_density(aes(fill = class), alpha=.25)
+estimates <- ggplot(data = df, aes(x = estimated_effective_parameter)) +
+  geom_density(aes(fill = class), alpha = .25)
+grid.arrange(actuals, estimates, nrow=2)
+```
+
+The multilevel model has done a great job capturing all the features of our data!
+
 
 
 [^2]: It always does, eventually.  To make it worse, here's yet another way to express the model:
