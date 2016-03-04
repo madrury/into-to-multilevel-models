@@ -5,14 +5,16 @@ date: "February 28, 2016"
 output: html_document
 ---
 
-This document presents an introduction to multilevel models, with a
-focus on random intercept models. We motivate the discussion by hghligting some issues that present in classical linear regression, and focus on how multilevel models offer solutions.
+This document presents an introduction to multilevel models, with a focus on
+random intercept models. We motivate the discussion by hghligting some issues
+that present in classical linear regression, and focus on how multilevel models
+offer solutions.
 
 Linear Models and Noisy Coefficients
 ------------------------------------
 
-Linear models, while exceedingly useful in many situations, deal very badly with
-high dimensional catagorical varaibles.  To demonstrate this, consider the
+Linear models, while exceedingly useful in many situations, deal very badly
+with high dimensional catagorical varaibles.  To demonstrate this, consider the
 following procedure, which regresses a normally distributed $Y$ against a
 totally independent catagorical predictor $X$
 
@@ -27,8 +29,8 @@ estiamte_lm_random_classes <- function(N, N_classes) {
 }
 ```
 
-If we simulate this procedure many times, we can see how the linear model assign
-parameter estimates to this data in the long run.
+If we simulate this procedure many times, we can see how the linear model
+assign parameter estimates to this data in the long run.
 
 ```{r}
 # Replicate fitting an estimator N times
@@ -55,41 +57,49 @@ ggplot(data=model_coefs_melted, aes(x=coef)) +
   labs(title="Parameter Estimates in Null Linear Model")
 ```
 
-It would make an interesting excersize to work out precise distribution of
-each parameter estimate in the model (as a function of the random $y$ and $X$),
-it is quite non-zero.
+It would make an interesting excersize to work out precise distribution of each
+parameter estimate in the model (as a function of the random $y$ and $X$), it
+is quite non-zero.
 
 Random Intercept Models
 -----------------------
 
-Random intercept models are a way to adress the high varaince that linear models
-exhibit in teh above situation.
+Random intercept models are a way to adress the high varaince that linear
+models exhibit in teh above situation.
 
-Recall that we may express the data model underlying a linear regression as follows
+Recall that we may express the data model underlying a linear regression as
+follows
 
 $$ Y \mid X \sim N(X \beta, \sigma I) $$
 
 That is, the conditional distribution of the reponse $Y$, when $X$ is held
-constant, is (multivariate) normal with mean $X \beta$.  The individual samples from $Y$ are
-independent, and the std-deviation of any one sample (again, given an $X$ held constant) is $\sigma$.  When
-fitting a linear model, the parameters $\beta$ and $\sigma$ are esimtated using
-maximum liklihood estimation.  As we have seen, when $X$ is a high dimensional
-catagorical vector, the linear model's estiamtes of $\beta$ are plauged by a
-high variance even in the most simple situations.
+constant, is (multivariate) normal with mean $X \beta$.  The individual samples
+from $Y$ are independent, and the std-deviation of any one sample (again, given
+an $X$ held constant) is $\sigma$.  When fitting a linear model, the parameters
+$\beta$ and $\sigma$ are esimtated using maximum liklihood estimation.  As we
+have seen, when $X$ is a high dimensional catagorical vector, the linear
+model's estiamtes of $\beta$ are plauged by a high variance even in the most
+simple situations.
 
-A random intercept model alleviates this varaince by adding an additional assumption into the data model.  The parameter estimates themselves (refered to
-in this context as *random intercepts*) are assumed to come from a normal distribution, whose parameter estiamtes the model also estiamtes. This has a constraining effect on the estimated parameters, which often results in more predictive models.
+A random intercept model alleviates this varaince by adding an additional
+assumption into the data model.  The parameter estimates themselves (refered to
+in this context as *random intercepts*) are assumed to come from a normal
+distribution, whose parameter estiamtes the model also estiamtes. This has a
+constraining effect on the estimated parameters, which often results in more
+predictive models.
 
 To be precise, let's set down some notation.  Let $\alpha_{[i]}$ denotre the
-parameter to be estiamted for class $i$, i.e one the parameter estiamte associated with one level of our many-leveled catagorical
-variable.  Then the defining relations of a random intercept model are
+parameter to be estiamted for class $i$, i.e one the parameter estiamte
+associated with one level of our many-leveled catagorical variable.  Then the
+defining relations of a random intercept model are
 
 $$ Y \mid X \sim N(\alpha_{[i]}, \sigma I) $$
 $$ \alpha \sim N( \mu_{\alpha}, \sigma_{\alpha}) $$
 
 The first relation is just a restatement of the linear regression data model.
 The second models the parameters in the linear model as *themselves*  random
-varaibles, sampled from a normal distribution whose mean and standard deviation are also to be estiamted.
+varaibles, sampled from a normal distribution whose mean and standard deviation
+are also to be estiamted.
 
 Fitting Random Intercept Models in R
 ------------------------------------
@@ -119,16 +129,17 @@ M_lmer <- lmer(y ~ (1 | X), data = df)
 
 We can pull the components described above out of the `M_lmer` object
 
-The mean of the random intercepts $\alpha$ was estimated as a global
-intercept term.  If it's confusing why the random intercept mean $\mu_{\alpha}$
-would appear as a global intercept, just observe that the model definition could
-just as well have been expressed as
+The mean of the random intercepts $\alpha$ was estimated as a global intercept
+term.  If it's confusing why the random intercept mean $\mu_{\alpha}$ would
+appear as a global intercept, just observe that the model definition could just
+as well have been expressed as
 
 $$ Y \mid X \sim N(\mu_{\alpha} + \alpha_{[i]}, \sigma I) $$
 $$ \alpha \sim N(0, \sigma_{\alpha}) $$
 
 which illistrates the general point that even the most simple multilevel models
-may be expressed in many equivelent ways.  This global intercept term is our first example of a *fixed effect*. 
+may be expressed in many equivelent ways.  This global intercept term is our
+first example of a *fixed effect*. 
 
 ```{r}
 fixef(M_lmer)
@@ -137,15 +148,15 @@ fixef(M_lmer)
 Fixed effects have have no apriori assumed distribution, as opposed to *random
 effects*, for which we do make such an assumption.
 
-The collection of estimated random intercepts $\hat \alpha$ caa be retrieved using the `ranef`
-acessor function
+The collection of estimated random intercepts $\hat \alpha$ caa be retrieved
+using the `ranef` acessor function
 
 ```{r}
 head(ranef(M_lmer)$X)
 ```
 
-The estimated standard deviation of these intercepts $\hat \sigma_{\alpha}$
-can be accessed as
+The estimated standard deviation of these intercepts $\hat \sigma_{\alpha}$ can
+be accessed as
 
 ```{r}
 attributes(VarCorr(M_lmer)$X)$stddev
@@ -162,8 +173,8 @@ model is
 
 $$ Y \mid X \sim N(0, 1) $$
 
-so the correct parameters would be $\hat \alpha_i = 0$ for all $i$,
-$\hat \sigma_{\alpha} = 0$, and $\hat \sigma = 1$.  We were very close [^1]!
+so the correct parameters would be $\hat \alpha_i = 0$ for all $i$, $\hat
+\sigma_{\alpha} = 0$, and $\hat \sigma = 1$.  We were very close [^1]!
 
 To make sure we didn't just get lucky, we can repeat this entire precodeure
 many times, and then plot the resulting histograms of estimated random effects
@@ -194,7 +205,8 @@ The random intercept model does much better than the linear model.  It often
 finds the exact truth ($\hat \sigma_{\alpha} = 0$), and otherwise assigns a
 very small standard deviation to the distribution of intercepts.
 
-To emphasize the point, Here's a side by size comparison of the intercepts in one of the models returned from `lme` vs the same returned from `lmer`
+To emphasize the point, Here's a side by size comparison of the intercepts in
+one of the models returned from `lme` vs the same returned from `lmer`
 
 ```{r message=FALSE, warning=FALSE}
 set.seed(154)
@@ -216,7 +228,8 @@ The random intercept controls the untamed varaince of the linear model.
 
 [^1]: Of course, we cant say that we were "close" in an absolute sense, but the
 ratio $\frac{\sigma_{\alpha}}{\sigma}$ of the group standard deviation to the
-residual standard deviation *is* meaningful, and the model did well in this respect.
+residual standard deviation *is* meaningful, and the model did well in this
+respect.
 
 Fixed Effect Terms
 ------------------
@@ -326,29 +339,41 @@ library("gridExtra")
 grid.arrange(p_fixef, p_ranef, ncol=2)
 ```
 
-It should be clear at this point that would could generalize to *random slopes*,
-experimentation here is left to the reader.
+It should be clear at this point that would could generalize to *random
+slopes*, experimentation here is left to the reader.
 
 Nested Classes
 --------------
 
-We still have not justified the name "Multilevel Models" (sometimes the term "Heiarchical Models" is also used, or "Mixed-Effects Models", the naming is confusing).
+We still have not justified the name "Multilevel Models" (sometimes the term
+"Heiarchical Models" is also used, or "Mixed-Effects Models", the naming is
+confusing).
 
-To understand why "Multilevel Models" is a good name, lets construct some data with two types of predictors:
+To understand why "Multilevel Models" is a good name, lets construct some data
+with two types of predictors:
 
   - `class` is a catagorical predictor with `N_class` levels.
-  - `subclass` is a another catagorical predictor that bears a parent-child relationship to `class`.  That is, each level of `class` has `N_subclass`
-  associated levels of `subclass`.
+  - `subclass` is a another catagorical predictor that bears a parent-child
+    relationship to `class`.  That is, each level of `class` has `N_subclass`
+    associated levels of `subclass`.
   
-Many times, in situations like this, we would expect the influence of `subclass` on some response varaible to be best expressed an adjustment to the influence of `class`.  Said another way, the levels of `class` may act as cluster labels for the levels of `subclass` within the context of a regression.
+Many times, in situations like this, we would expect the influence of
+`subclass` on some response varaible to be best expressed an adjustment to the
+influence of `class`.  Said another way, the levels of `class` may act as
+cluster labels for the levels of `subclass` within the context of a regression.
 
-We can express this idea in the context of a miltilevel model by hypothesizing the following data model
+We can express this idea in the context of a miltilevel model by hypothesizing
+the following data model
 
 $$ Y \mid X \sim N(\mu_{\text{class}} + \alpha_{[i]} + \beta_{[ij]}, \sigma) $$
 $$ \alpha \sim N(0, \sigma_{\alpha}) $$
 $$ \beta_{[i*]} \sim N(0, \sigma_{\alpha_{[i]}}) $$
 
-The notation is starting to get difficult[^2].  Here $\alpha$ represents the `class` random intercepts, and $\beta$ represents the `subclass` random intercepts.  Informally, we are saying that the `class` intercepts should cluster around the fixed intercept, and the `subclass` intercepts should cluster around the corresponding parent `class` intercept.
+The notation is starting to get difficult[^2].  Here $\alpha$ represents the
+`class` random intercepts, and $\beta$ represents the `subclass` random
+intercepts.  Informally, we are saying that the `class` intercepts should
+cluster around the fixed intercept, and the `subclass` intercepts should
+cluster around the corresponding parent `class` intercept.
 
 Let's generate some data using this scheme.  First, `class` parameters[^3]
 
@@ -375,8 +400,11 @@ subclass_parameters <- structure(
 head(subclass_parameters)
 ```
 
-We call the sum of a `class` and `subclass` parameter an `effective` parameter (this is not a common term, but is useful for this discussion), it is this value that forms the total effect size for the subclass.  We can
-visualize the distribution of effective parameters in our model, grouped by thier associated class
+We call the sum of a `class` and `subclass` parameter an `effective` parameter
+(this is not a common term, but is useful for this discussion), it is this
+value that forms the total effect size for the subclass.  We can visualize the
+distribution of effective parameters in our model, grouped by thier associated
+class
 
 ```{r meessage=FALSE, warning=FALSE}
 # Get the class name from a subclass name. For example:
@@ -414,9 +442,11 @@ ggplot(data = parameters_df, aes(x = effective_parameter)) +
   labs(title = "Distribution of True Effective Parameters") 
 ```
 
-The `lme4` library can fit the parameters in this model, justifying the choice of name.  First, let's generate some response data
+The `lme4` library can fit the parameters in this model, justifying the choice
+of name.  First, let's generate some response data
 
-Each group of `subclass` parameters takes a bell shaped distribution around the `class` mean (which are marked on the rug plot below the x-axis).
+Each group of `subclass` parameters takes a bell shaped distribution around the
+`class` mean (which are marked on the rug plot below the x-axis).
 
 ```{r}
 N_obs <- 20000
@@ -434,7 +464,8 @@ class_subclass_df <- data.frame(
 head(class_subclass_df)
 ```
 
-The multilevel model we layed out above can be fit using the `:` operator in `lme4` to express the parent-child relationship of `class` and `subclass`
+The multilevel model we layed out above can be fit using the `:` operator in
+`lme4` to express the parent-child relationship of `class` and `subclass`
 
 ```{r}
 class_subclass_lmer <- lmer(y ~ (1 | class) + (1 | class:subclass),
@@ -448,7 +479,9 @@ Breaking this down
   - The `(1 | class:subclass)` fits a random intercept for `subclass`, but with
   each group of `subclass` estiamtes centered around the estiamted intercept for the parent `class`.
 
-Let's look into how well this model captures reality.  First, we plot the estimated and actual class means, along with thie standard error of each estimated class mean
+Let's look into how well this model captures reality.  First, we plot the
+estimated and actual class means, along with thie standard error of each
+estimated class mean
 
 ```{r message=FALSE, warning=FALSE}
 # TODO: Make this a one df plot, so that the labels play nice.
@@ -479,7 +512,8 @@ ggplot(data = class_means_df) +
   labs(title = "Estiamted vs. Actual Class Means")
 ```
 
-We can also recrate the above density plots of the `subclass` parameters, this time using the *estimated*, instead of true, values
+We can also recrate the above density plots of the `subclass` parameters, this
+time using the *estimated*, instead of true, values
 
 ```{r message=FALSE, warning=FALSE}
 estimated_parameters_df <- data.frame(
@@ -506,9 +540,11 @@ estimates <- ggplot(data = estimated_parameters_df,
 grid.arrange(actuals, estimates, nrow=2)
 ```
 
-The multilevel model has done a great job capturing all the features of our data!
+The multilevel model has done a great job capturing all the features of our
+data!
 
-It's worth comparing this to what we would get using only a classical linear model
+It's worth comparing this to what we would get using only a classical linear
+model
 
 ```{r}
 subclass_lm <- lm(y ~ factor(subclass)*factor(class), data = class_subclass_df)
@@ -526,9 +562,13 @@ ggplot(data = subclass_lm_df, aes(x = estimated_parameter)) +
   labs(title = "Distribution of Linear Model Parameters")
 ```
 
-Recall that the *within* class variance of the true parameters is always $1$ in our data.  The classical linear model allocates too much of the parameter variance *within* each class and too little *between* the classes.  Observe that the class means themselves are hardly distinguished at all!
+Recall that the *within* class variance of the true parameters is always $1$ in
+our data.  The classical linear model allocates too much of the parameter
+variance *within* each class and too little *between* the classes.  Observe
+that the class means themselves are hardly distinguished at all!
 
-[^2]: It always does, eventually.  To make it worse, here's yet another way to express the model:
+[^2]: It always does, eventually.  To make it worse, here's yet another way to
+express the model:
 $$ Y \mid X \sim N(\beta_{[ij]}, \sigma) $$
 $$ \alpha \sim N(\mu_{\alpha}, \sigma_{\alpha}) $$
 $$ \beta_{[i*]} \sim N(\alpha_{[i]}, \sigma_{\alpha_{[i]}}) $$
