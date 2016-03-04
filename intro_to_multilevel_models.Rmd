@@ -381,7 +381,9 @@ visualize the distribution of effective parameters in our model, grouped by thie
 ```{r meessage=FALSE, warning=FALSE}
 # Get the class name from a subclass name. For example:
 #   get_class_name("10.4") == "10"
-get_class_name <- function(subclass_name) strsplit(subclass_name, ".", fixed = TRUE)[[1]][1]
+get_class_name <- function(subclass_name) {
+  strsplit(subclass_name, ".", fixed = TRUE)[[1]][1]
+}
 
 effective_parameters <- lapply(
   names(subclass_parameters),
@@ -398,7 +400,7 @@ parameters_df <- data.frame(
 ggplot(data = parameters_df, aes(x = effective_parameter)) +
   geom_density(aes(fill = class), alpha = .25) +
   geom_rug(aes(x = class_parameter, colour = class)) +
-  labs(title = "Distrribution of True Effective Parameters")
+  labs(title = "Distribution of True Effective Parameters")
 ```
 
 It may be easier to visualize if we break out the individual subclass parameter
@@ -409,7 +411,7 @@ ggplot(data = parameters_df, aes(x = effective_parameter)) +
   geom_density(aes(fill = class), alpha = .25) +
   geom_rug(aes(x = class_parameter, colour = class)) +
   facet_wrap(~ class) +
-  labs(title = "Distrribution of True Effective Parameters") 
+  labs(title = "Distribution of True Effective Parameters") 
 ```
 
 The `lme4` library can fit the parameters in this model, justifying the choice of name.  First, let's generate some response data
@@ -417,7 +419,7 @@ The `lme4` library can fit the parameters in this model, justifying the choice o
 Each group of `subclass` parameters takes a bell shaped distribution around the `class` mean (which are marked on the rug plot below the x-axis).
 
 ```{r}
-N_obs <- 5000
+N_obs <- 20000
 
 class <- as.character(sample(1:N_class, N_obs, replace = TRUE))
 subclass <- as.character(sample(1:N_subclass, N_obs, replace = TRUE))
@@ -468,19 +470,19 @@ class_means_df <- data.frame(
 )
 
 ggplot(data = class_means_df) +
-  geom_point(aes(x = class_id, y = estimated_class_means), color = "blue") +
+  geom_point(aes(x = class_id, y = estimated_class_means, colour = "estimated")) +
   geom_pointrange(aes(x = class_id, y = estimated_class_means,
-                      ymax = upper_se, ymin = lower_se), color = "blue",
+                      ymax = upper_se, ymin = lower_se, colour = "estimated"),
                   alpha = .5) +
-  geom_point(aes(x = class_id, y = true_class_means)) +
+  geom_point(aes(x = class_id, y = true_class_means, colour = "actual")) +
+  scale_colour_manual(name = "type", values = c("black", "blue")) +
   labs(title = "Estiamted vs. Actual Class Means")
 ```
 
 We can also recrate the above density plots of the `subclass` parameters, this time using the *estimated*, instead of true, values
 
 ```{r message=FALSE, warning=FALSE}
-# TODO: Don't call this df
-df <- data.frame(
+estimated_parameters_df <- data.frame(
   estimated_effective_parameter =
     rep(fixef(class_subclass_lmer), N_class*N_subclass) +
     rep(ranef(class_subclass_lmer)$class[, 1], each = N_subclass) +
@@ -488,25 +490,43 @@ df <- data.frame(
   class = factor(rep(1:9, each = N_subclass))
 )
 
-# TODO: Need title
-ggplot(data = df, aes(x = estimated_effective_parameter)) +
-  geom_density(aes(fill = class), alpha=.25)
+ggplot(data = estimated_parameters_df, aes(x = estimated_effective_parameter)) +
+  geom_density(aes(fill = class), alpha=.25) +
+  labs(title = "Distribution of Estimated Effective Parameters")
 ```
 
 Here that is side by side with the actual values
 
 ```{r message=FALSE, warning=FALSE}
-# TODO: Need titles.
 actuals <- ggplot(data = parameters_df, aes(x = effective_parameter)) +
   geom_density(aes(fill = class), alpha=.25)
-estimates <- ggplot(data = df, aes(x = estimated_effective_parameter)) +
+estimates <- ggplot(data = estimated_parameters_df,
+                    aes(x = estimated_effective_parameter)) +
   geom_density(aes(fill = class), alpha = .25)
 grid.arrange(actuals, estimates, nrow=2)
 ```
 
 The multilevel model has done a great job capturing all the features of our data!
 
+It's worth comparing this to what we would get using only a classical linear model
 
+```{r}
+subclass_lm <- lm(y ~ factor(subclass)*factor(class), data = class_subclass_df)
+estimated_parameters_lm <- coef(subclass_lm)
+# Assign reasonable names to the coeffieients in the correct order.
+names(estimated_parameters_lm) <- as.vector(
+  t(outer(1:N_class, 1:N_subclass, paste, sep="."))
+)
+subclass_lm_df <- data.frame(
+  estimated_parameter = estimated_parameters_lm,
+  class = rep(names(class_parameters), each = N_subclass)
+)
+ggplot(data = subclass_lm_df, aes(x = estimated_parameter)) + 
+  geom_density(aes(fill = class), alpha = .25) +
+  labs(title = "Distribution of Linear Model Parameters")
+```
+
+Recall that the *within* class variance of the true parameters is always $1$ in our data.  The classical linear model allocates too much of the parameter variance *within* each class and too little *between* the classes.  Observe that the class means themselves are hardly distinguished at all!
 
 [^2]: It always does, eventually.  To make it worse, here's yet another way to express the model:
 $$ Y \mid X \sim N(\beta_{[ij]}, \sigma) $$
