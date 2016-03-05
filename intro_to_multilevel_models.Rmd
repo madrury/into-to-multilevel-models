@@ -363,12 +363,8 @@ lmer(y ~ (1 + t | X), data = ...)
 Nested Classes
 --------------
 
-We still have not justified the name "Multilevel Models" (sometimes the term
-"Hierarchical Models" is also used, or "Mixed-Effects Models", the naming is
-confusing).
-
-To understand why "Multilevel Models" is a good name, lets construct some data
-with two types of predictors:
+To understand why "Multilevel Models" is an appropriate name[^4] for this type of
+model, lets construct some data with two types of predictors:
 
   - `class` is a categorical predictor with `N_class` levels.
   - `subclass` is a another categorical predictor that bears a parent-child
@@ -380,20 +376,19 @@ Many times, in situations like this, we would expect the influence of
 influence of `class`.  Said another way, the levels of `class` may act as
 cluster labels for the levels of `subclass` within the context of a regression.
 
-We can express this idea in the context of a multilevel model by hypothesizing
-the following data model
+We can express this idea as a multilevel model by hypothesizing the following
 
 $$ Y \mid X \sim N(\mu_{\text{class}} + \alpha_{[i]} + \beta_{[ij]}, \sigma) $$
 $$ \alpha \sim N(0, \sigma_{\alpha}) $$
 $$ \beta_{[i*]} \sim N(0, \sigma_{\alpha_{[i]}}) $$
 
-The notation is starting to get difficult[^2].  Here $\alpha$ represents the
+The notation is starting to get difficult[^5].  Here $\alpha$ represents the
 `class` random intercepts, and $\beta$ represents the `subclass` random
 intercepts.  Informally, we are saying that the `class` intercepts should
 cluster around the fixed intercept, and the `subclass` intercepts should
 cluster around the corresponding parent `class` intercept.
 
-Let's generate some data using this scheme.  First, `class` parameters[^3]
+Let's generate some data using this scheme.  First, `class` parameters[^6]
 
 ```{r}
 N_class <- 9
@@ -410,19 +405,21 @@ and then subclass parameters
 
 ```{r}
 N_subclass <- 100
+
 subclass_parameters <- structure(
   rnorm(N_class*N_subclass),
   # The transpose is to put things in an intuitive order
   names = as.vector(t(outer(1:N_class, 1:N_subclass, paste, sep=".")))
 )
+
 head(subclass_parameters)
 ```
 
 We call the sum of a `class` and `subclass` parameter an `effective` parameter
 (this is not a common term, but is useful for this discussion), it is this
 value that forms the total effect size for the subclass.  We can visualize the
-distribution of effective parameters in our model, grouped by their associated
-class
+distribution of true effective parameters in our model, grouped by their
+associated class
 
 ```{r meessage=FALSE, warning=FALSE}
 # Get the class name from a subclass name. For example:
@@ -460,25 +457,26 @@ ggplot(data = parameters_df, aes(x = effective_parameter)) +
   labs(title = "Distribution of True Effective Parameters") 
 ```
 
-The `lme4` library can fit the parameters in this model, justifying the choice
-of name.  First, let's generate some response data
-
 Each group of `subclass` parameters takes a bell shaped distribution around the
 `class` mean (which are marked on the rug plot below the x-axis).
 
+The `lme4` library can fit the parameters in this model.  First, let's generate
+some response data
+
 ```{r}
-N_obs <- 20000
+N_obs <- 10000
 
 class <- as.character(sample(1:N_class, N_obs, replace = TRUE))
 subclass <- as.character(sample(1:N_subclass, N_obs, replace = TRUE))
 class_subclass <- paste(class, subclass, sep = ".")
-y <- class_parameters[class] + subclass_parameters[class_subclass] + rnorm(N_obs)
+y <- class_parameters[class] + subclass_parameters[class_subclass] + rnorm(N_obs, sd = 5)
 
 class_subclass_df <- data.frame(
   class  = class,
   subclass = subclass,
   y = y
 )
+
 head(class_subclass_df)
 ```
 
@@ -495,7 +493,8 @@ Breaking this down
   - The implied `1` fits a fixed effect overall intercept.
   - The `(1 | class)` term fits a random intercept for `class`.
   - The `(1 | class:subclass)` fits a random intercept for `subclass`, but with
-  each group of `subclass` estimates centered around the estimated intercept for the parent `class`.
+    each group of `subclass` estimates centered around the estimated intercept
+    for the parent `class`.
 
 Let's look into how well this model captures reality.  First, we plot the
 estimated and actual class means, along with the standard error of each
@@ -551,10 +550,14 @@ Here that is side by side with the actual values
 ```{r message=FALSE, warning=FALSE}
 actuals <- ggplot(data = parameters_df, aes(x = effective_parameter)) +
   geom_density(aes(fill = class), alpha=.25)
+
 estimates <- ggplot(data = estimated_parameters_df,
                     aes(x = estimated_effective_parameter)) +
   geom_density(aes(fill = class), alpha = .25)
-grid.arrange(actuals, estimates, nrow=2)
+
+grid.arrange(actuals + scale_x_continuous(limits = c(-8, 8)),
+             estimates + scale_x_continuous(limits = c(-8, 8)),
+             nrow=2)
 ```
 
 The multilevel model has done a great job capturing all the features of our
@@ -564,19 +567,25 @@ It's worth comparing this to what we would get using only a classical linear
 model
 
 ```{r}
-subclass_lm <- lm(y ~ factor(subclass)*factor(class), data = class_subclass_df)
+subclass_lm <- lm(y ~ -1 + factor(subclass) : factor(class), data = class_subclass_df)
 estimated_parameters_lm <- coef(subclass_lm)
+
 # Assign reasonable names to the coefficients in the correct order.
 names(estimated_parameters_lm) <- as.vector(
   t(outer(1:N_class, 1:N_subclass, paste, sep="."))
 )
+
 subclass_lm_df <- data.frame(
   estimated_parameter = estimated_parameters_lm,
   class = rep(names(class_parameters), each = N_subclass)
 )
-ggplot(data = subclass_lm_df, aes(x = estimated_parameter)) + 
-  geom_density(aes(fill = class), alpha = .25) +
-  labs(title = "Distribution of Linear Model Parameters")
+
+estimates_lm <- ggplot(data = subclass_lm_df, aes(x = estimated_parameter)) + 
+  geom_density(aes(fill = class), alpha = .25)
+  
+grid.arrange(actuals + scale_x_continuous(limits = c(-10, 10)),
+             estimates_lm + scale_x_continuous(limits = c(-10, 10)),
+             nrow=2)
 ```
 
 Recall that the *within* class variance of the true parameters is always $1$ in
@@ -584,10 +593,13 @@ our data.  The classical linear model allocates too much of the parameter
 variance *within* each class and too little *between* the classes.  Observe
 that the class means themselves are hardly distinguished at all!
 
-[^2]: It always does, eventually.  To make it worse, here's yet another way to
+[^4]: Sometimes the term "Hierarchical Models" is also used, or "Mixed-Effects
+Models", the naming is inconsistet and confusing.
+
+[^5]: It always does, eventually.  To make it worse, here's yet another way to
 express the model:
 $$ Y \mid X \sim N(\beta_{[ij]}, \sigma) $$
 $$ \alpha \sim N(\mu_{\alpha}, \sigma_{\alpha}) $$
 $$ \beta_{[i*]} \sim N(\alpha_{[i]}, \sigma_{\alpha_{[i]}}) $$
 
-[^3]: We limit to $9$ class parameters to assist with visualizations.
+[^6]: We limit to $9$ class parameters to assist with visualizations.
