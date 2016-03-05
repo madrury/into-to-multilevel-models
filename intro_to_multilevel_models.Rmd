@@ -560,13 +560,31 @@ grid.arrange(actuals + scale_x_continuous(limits = c(-8, 8)),
              nrow=2)
 ```
 
-The multilevel model has done a great job capturing all the features of our
-data!
+Here we see quite clearly the qualitive nature of a newsted multilevel model:
+the `suclass` intercepts have been shrunk towards thier corresponding class means.
+It is in this way that multilevel regression solves the variance problem of
+linear regression.
 
-It's worth comparing this to what we would get using only a classical linear
-model
+This is all quite similar to *ridge regression*, another popular extension to
+the classical linear regression framework.  In ridge regression we estimate
+parameters by maximizing the penalized least squares criterion
 
-```{r}
+$$ \sum_i \left( y_i - \sum_j x_{ij} \beta_j \right)^2 + \lambda \sum_j \beta_j^2 $$
+
+There are two signiigant conceptual differences
+
+  - In ridge regression, all the parameters in the model are shrunk towards zero,
+  in multilevel regression, they are shrunk towards the class means.
+  - In ridge regression, the intesitity of shrinkage is controlled by the free
+  parameter $\lambda$, which must be tuned by some meta-procedure (cross 
+  validation is popular).  In a multilevel model, the appropriate level of
+  shrinkage is estiamted as part of the fitting algorithm.
+
+
+To drive home the point, its worth seeing what would happen here if we fit a
+classical linear model with no regularization or shrinkage
+
+```{r message=FALSE, warning=FALSE}
 subclass_lm <- lm(y ~ -1 + factor(subclass) : factor(class), data = class_subclass_df)
 estimated_parameters_lm <- coef(subclass_lm)
 
@@ -588,10 +606,12 @@ grid.arrange(actuals + scale_x_continuous(limits = c(-10, 10)),
              nrow=2)
 ```
 
-Recall that the *within* class variance of the true parameters is always $1$ in
-our data.  The classical linear model allocates too much of the parameter
-variance *within* each class and too little *between* the classes.  Observe
-that the class means themselves are hardly distinguished at all!
+As we would have guessed, here the in class variation of the `subclass` parameters
+is too large (notice that we had to expand the x-axis to $(-10, 10)$ to capture
+the full range).  This is a bad practice, as parameters supported by little
+data will be those whose effects get overestiamted, it's much more reasonable to
+take account of our prior belief that effects cluster around the `class` mean, as
+a multilevel model enforces.
 
 [^4]: Sometimes the term "Hierarchical Models" is also used, or "Mixed-Effects
 Models", the naming is inconsistet and confusing.
