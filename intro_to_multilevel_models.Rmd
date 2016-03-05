@@ -8,9 +8,9 @@ This document presents an introduction to multilevel models, with a focus on
 the subclass of random intercept models. We motivate the discussion by
 highlighting some issues that present in classical linear regression, and focus
 on how multilevel models offer solutions.  In the last section, we discuss how
-multilevel models can be used to model situation where the levels of a
-categorical variable can be grouped into natural classes, where we expect the
-relationship with the response to factor in variation between groups, and
+ultilevel models can be used to model situation where the lavels of a
+catagorical variable can be grouped into natural classes, where we expect the
+relationship with the response to factor in varaition between groups, and
 within the groups themselves. 
 
 Linear Models and Noisy Coefficients
@@ -18,7 +18,7 @@ Linear Models and Noisy Coefficients
 
 Classical linear models (and, by extension, glms), while exceedingly useful in
 many situations, deal very badly with high dimensional categorical variables.
-To demonstrate this phenomena, consider the following procedure, which
+To demonstrate this phenomina, consider the following procedure, which
 regresses a normally distributed response $y$ against a totally independent
 categorical predictor $X$
 
@@ -32,7 +32,7 @@ estiamte_lm_random_classes <- function(N, N_classes) {
 ```
 
 If we simulate this procedure many times, we can see how the linear model
-assigns parameter estimates to each of the categorical levels in $X$
+assigns parameter estimates to each of the catagorical levels in $X$
 
 ```{r}
 # Replicate fitting an estimator N times
@@ -101,7 +101,7 @@ The second models the parameters in the linear model as *themselves*  random
 variables, sampled from a normal distribution whose mean and standard deviation
 are also to be estimated.
 
-In the context of a multilevel model
+In the context of a multilinear model
 
   - $\sigma$ is called the *residual standard deviation*.
   - The $\alpha_{[i]}$ are called the *random intercepts*.
@@ -151,7 +151,7 @@ $$ \alpha \sim N(0, \sigma_{\alpha}) $$
 
 which illustrates the general point that even the most simple multilevel models
 may be expressed in many equivalent ways.  This global intercept term is our
-first example of a *fixed effect*[^2].  It can be accessed with 
+first example of a *fixed effect*[^2].  It can be accesed with 
 
 ```{r}
 fixef(M_lmer)
@@ -165,7 +165,7 @@ head(ranef(M_lmer)$X)
 ```
 
 The estimated standard deviation of these intercepts $\hat \sigma_{\alpha}$ can
-be accessed (that is a bit too complicated in this authors opinion) as
+be accessed (that is a bit too complicated in this authors opinon) as
 
 ```{r}
 attributes(VarCorr(M_lmer)$X)$stddev
@@ -324,7 +324,7 @@ fixef_preds_melted <- data.frame(
 p_fixef <- ggplot(data = fixef_preds_melted, aes(x = x, y = fix_effects_preds)) +
                   geom_line(aes(group = model_id), alpha = .25) +
                   geom_abline(intercept = 0, slope = 1, color="red") +
-                  labs(title="Fix Effects Estimates")
+                  labs(title="Fix Effects Estiamtes")
 
 
 # Plot the random effect distribution from the same model
@@ -560,10 +560,10 @@ grid.arrange(actuals + scale_x_continuous(limits = c(-8, 8)),
              nrow=2)
 ```
 
-Here we see quite clearly the qualitative nature of a nested multilevel model:
-the `suclass` intercepts have been shrunk towards their corresponding class
-means.  It is in this way that multilevel regression solves the variance
-problem of linear regression.
+Here we see quite clearly the qualitive nature of a newsted multilevel model:
+the `suclass` intercepts have been shrunk towards thier corresponding class means.
+It is in this way that multilevel regression solves the variance problem of
+linear regression.
 
 This is all quite similar to *ridge regression*, another popular extension to
 the classical linear regression framework.  In ridge regression we estimate
@@ -571,14 +571,14 @@ parameters by maximizing the penalized least squares criterion
 
 $$ \sum_i \left( y_i - \sum_j x_{ij} \beta_j \right)^2 + \lambda \sum_j \beta_j^2 $$
 
-There are two significant conceptual differences
+There are two signiigant conceptual differences
 
   - In ridge regression, all the parameters in the model are shrunk towards zero,
   in multilevel regression, they are shrunk towards the class means.
-  - In ridge regression, the intensity of shrinkage is controlled by the free
+  - In ridge regression, the intesitity of shrinkage is controlled by the free
   parameter $\lambda$, which must be tuned by some meta-procedure (cross 
   validation is popular).  In a multilevel model, the appropriate level of
-  shrinkage is estimated as part of the fitting algorithm.
+  shrinkage is estiamted as part of the fitting algorithm.
 
 
 To drive home the point, its worth seeing what would happen here if we fit a
@@ -609,12 +609,12 @@ grid.arrange(actuals + scale_x_continuous(limits = c(-10, 10)),
 As we would have guessed, here the in class variation of the `subclass` parameters
 is too large (notice that we had to expand the x-axis to $(-10, 10)$ to capture
 the full range).  This is a bad practice, as parameters supported by little
-data will be those whose effects get overestimated, it's much more reasonable to
+data will be those whose effects get overestiamted, it's much more reasonable to
 take account of our prior belief that effects cluster around the `class` mean, as
 a multilevel model enforces.
 
 [^4]: Sometimes the term "Hierarchical Models" is also used, or "Mixed-Effects
-Models", the naming is inconsistent and confusing.
+Models", the naming is inconsistet and confusing.
 
 [^5]: It always does, eventually.  To make it worse, here's yet another way to
 express the model:
